@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useSession } from "../../context/SessionContext";
+import { supabase } from "../../lib/supabase";
 import { parseListingFromPhoto } from "../../lib/gemini";
 import { CATEGORIES } from "../../lib/mockData";
 import { IconCamera, IconMic, IconSparkle } from "../../components/icons/Icons";
@@ -46,24 +47,71 @@ export default function PostItemPage({ onPosted }) {
     setDraft((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    addListing({
-      id: `l-${Date.now()}`,
-      title: draft.title || "Untitled Item",
-      description: draft.description,
-      category: draft.category,
-      condition: draft.condition,
-      price: Number(draft.price) || 0,
-      dorm: user.dorm,
-      room: user.room,
-      seller: { id: user.id, name: user.name, dorm: user.dorm },
-      tags: [],
-      postedAt: new Date().toISOString().slice(0, 10),
-      photoTone: "kraft",
-      photoLabel: draft.category.slice(0, 8).toUpperCase(),
-    });
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  try {
+    // Get the real logged-in Supabase user
+    const {
+      data: { user: authUser },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError) throw userError;
+    if (!authUser) throw new Error("You must be logged in.");
+
+    let uploadedPhotoUrl = null;
+
+    // Upload photo if one was selected
+    if (photoFile) {
+      const fileExt = photoFile.name.split(".").pop();
+      const fileName = `${authUser.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("listing-images")
+        .upload(fileName, photoFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from("listing-images")
+        .getPublicUrl(fileName);
+
+      uploadedPhotoUrl = publicUrlData.publicUrl;
+    }
+
+    // Get the student's building
+    const { data: profile, error: profileError } = await supabase
+      .from("users")
+      .select("building_id, room_number")
+      .eq("user_id", authUser.id)
+      .single();
+
+    if (profileError) throw profileError;
+
+    // Create the listing
+    const { error: listingError } = await supabase
+      .from("listings")
+      .insert({
+        seller_id: authUser.id,
+        title: draft.title || "Untitled Item",
+        description: draft.description,
+        category: draft.category,
+        condition: draft.condition,
+        price: Number(draft.price) || 0,
+        is_free: Number(draft.price) === 0,
+        photos: uploadedPhotoUrl ? [uploadedPhotoUrl] : [],
+        building_id: profile.building_id,
+        pickup_location: profile.room_number
+          ? `Room ${profile.room_number}`
+          : null,
+        status: "available",
+      });
+
+    if (listingError) throw listingError;
+
     setPosted(true);
+
     setTimeout(() => {
       setPosted(false);
       setDraft(emptyDraft);
@@ -72,7 +120,11 @@ export default function PostItemPage({ onPosted }) {
       setVoiceText("");
       onPosted?.();
     }, 1100);
-  };
+  } catch (error) {
+    console.error("Error posting listing:", error);
+    alert(error.message);
+  }
+};
 
   if (posted) {
     return (
