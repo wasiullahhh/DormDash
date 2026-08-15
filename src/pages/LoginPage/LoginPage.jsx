@@ -1,21 +1,23 @@
 import { useState } from "react";
 import "./LoginPage.css";
 import { useSession } from "../../context/SessionContext";
+import { ALLOWED_EMAIL_DOMAIN } from "../../lib/supabase";
 
 export default function LoginPage({ onClose }) {
-    const { setUser, registerUser, signInUser } = useSession();
+    const { registerUser, signInUser } = useSession();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [isCreating, setIsCreating] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
 
-    const allowedDomain = "@my.centennialcollege.ca";
+    const allowedDomain = `@${ALLOWED_EMAIL_DOMAIN}`;
 
     function validateEmailDomain(e) {
         return e.toLowerCase().endsWith(allowedDomain);
     }
 
-    const handleSubmit = (evt) => {
+    const handleSubmit = async (evt) => {
         evt.preventDefault();
         setError("");
         if (!email || !password) {
@@ -31,30 +33,33 @@ export default function LoginPage({ onClose }) {
             return;
         }
 
-        if (isCreating) {
-            const nameFromEmail = email.split("@")[0].replace(/\.|_/g, " ");
-            const res = registerUser({
-                email,
-                password,
-                name: nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1),
-            });
+        setSubmitting(true);
+        try {
+            if (isCreating) {
+                const nameFromEmail = email.split("@")[0].replace(/\.|_/g, " ");
+                const res = await registerUser({
+                    email,
+                    password,
+                    name: nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1),
+                });
+                if (!res.success) {
+                    setError(res.error);
+                    return;
+                }
+                if (onClose) onClose();
+                return;
+            }
+
+            // Sign in flow: require prior registration
+            const res = await signInUser({ email, password });
             if (!res.success) {
                 setError(res.error);
                 return;
             }
-            setUser(res.user);
             if (onClose) onClose();
-            return;
+        } finally {
+            setSubmitting(false);
         }
-
-        // Sign in flow: require prior registration
-        const res = signInUser({ email, password });
-        if (!res.success) {
-            setError(res.error);
-            return;
-        }
-        setUser(res.user);
-        if (onClose) onClose();
     };
 
     return (
@@ -91,12 +96,13 @@ export default function LoginPage({ onClose }) {
                     {error && <div className="login-error">{error}</div>}
 
                     <div className="login-actions">
-                        <button type="submit" className="btn-primary">
-                            {isCreating ? "Create Account" : "Sign In"}
+                        <button type="submit" className="btn-primary" disabled={submitting}>
+                            {submitting ? "Please wait…" : isCreating ? "Create Account" : "Sign In"}
                         </button>
                         <button
                             type="button"
                             className="btn-secondary"
+                            disabled={submitting}
                             onClick={() => setIsCreating((s) => !s)}
                         >
                             {isCreating ? "Have an account? Sign in" : "Create an account"}

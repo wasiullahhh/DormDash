@@ -1,4 +1,4 @@
-// Mock data used until Firestore is wired up.
+// Mock data used until listings/profiles are backed by Supabase.
 
 export const DORMS = [
   "Harrington Hall",
@@ -19,17 +19,6 @@ export const CATEGORIES = [
   "Storage",
   "Misc",
 ];
-
-export const CURRENT_USER = {
-  id: "u-001",
-  name: "Jordan Avery",
-  email: "javery@campus.edu",
-  dorm: "Harrington Hall",
-  room: "4B",
-  interests: ["minimalist", "budget-conscious", "setting up a dorm room"],
-  sustainabilityScore: 12, // lbs of stuff kept out of landfill via this account
-  joined: "2026-08-01",
-};
 
 export const MOCK_LISTINGS = [
   {

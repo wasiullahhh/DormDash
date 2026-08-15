@@ -1,14 +1,33 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   MOCK_LISTINGS,
   MOCK_SAVED_LISTING_IDS,
   MOCK_SWIPE_HISTORY,
 } from "../lib/mockData";
+import { supabase } from "../lib/supabase";
 
 const SessionContext = createContext(null);
 
+// Supabase only knows email/password/metadata — these fields aren't
+// persisted anywhere yet (no profiles table). TODO: once one exists,
+// hydrate these from it instead of defaulting on every session.
+function toAppUser(authUser) {
+  if (!authUser) return null;
+  return {
+    id: authUser.id,
+    email: authUser.email,
+    name: authUser.user_metadata?.name || authUser.email.split("@")[0],
+    dorm: "",
+    room: "",
+    interests: [],
+    sustainabilityScore: 0,
+    joined: (authUser.created_at || "").slice(0, 10),
+  };
+}
+
 export function SessionProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
   const [listings, setListings] = useState(MOCK_LISTINGS);
   const [dormScope, setDormScope] = useState("mine"); // "mine" | "all"
   const [swipeHistory, setSwipeHistory] = useState(MOCK_SWIPE_HISTORY);
@@ -16,59 +35,52 @@ export function SessionProvider({ children }) {
     new Set(MOCK_SAVED_LISTING_IDS)
   );
 
-  // Simple mock user store persisted to localStorage so registered users
-  // must create an account before they can sign in.
-  const USERS_KEY = "dormdash_mock_users";
-  const initialUsers = (() => {
-    try {
-      const raw = localStorage.getItem(USERS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) {
-      return [];
-    }
-  })();
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(toAppUser(data.session?.user));
+      setAuthReady(true);
+    });
 
-  const [users, setUsers] = useState(initialUsers);
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(toAppUser(session?.user));
+    });
 
-  function persistUsers(next) {
-    setUsers(next);
-    try {
-      localStorage.setItem(USERS_KEY, JSON.stringify(next));
-    } catch (e) {
-      // ignore
-    }
-  }
+    return () => subscription.subscription.unsubscribe();
+  }, []);
 
-  const registerUser = ({ email, password, name = "" }) => {
-    const exists = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-    if (exists) {
-      return { success: false, error: "An account with that email already exists." };
-    }
-    const newUser = {
-      id: `u-${Math.floor(Math.random() * 100000)}`,
-      name: name || email.split("@")[0],
+  const registerUser = async ({ email, password, name = "" }) => {
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      dorm: "",
-      room: "",
-      interests: [],
-      sustainabilityScore: 0,
-      joined: new Date().toISOString().slice(0, 10),
-    };
-    const next = [...users, newUser];
-    persistUsers(next);
-    return { success: true, user: newUser };
+      options: { data: { name } },
+    });
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    if (!data.session) {
+      return {
+        success: false,
+        error: "Account created — check your email to confirm before signing in.",
+      };
+    }
+    const appUser = toAppUser(data.user);
+    setUser(appUser);
+    return { success: true, user: appUser };
   };
 
-  const signInUser = ({ email, password }) => {
-    const found = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
-    if (!found) {
-      return { success: false, error: "No account found for that email. Please create an account." };
+  const signInUser = async ({ email, password }) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      return { success: false, error: error.message };
     }
-    if (found.password !== password) {
-      return { success: false, error: "Incorrect password." };
-    }
-    return { success: true, user: found };
+    const appUser = toAppUser(data.user);
+    setUser(appUser);
+    return { success: true, user: appUser };
+  };
+
+  const signOutUser = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
   };
 
   const recordSwipe = (listingId, direction) => {
@@ -101,6 +113,7 @@ export function SessionProvider({ children }) {
     () => ({
       user,
       setUser,
+      authReady,
       listings,
       addListing,
       dormScope,
@@ -111,9 +124,9 @@ export function SessionProvider({ children }) {
       toggleSaved,
       registerUser,
       signInUser,
-      users,
+      signOutUser,
     }),
-    [user, listings, dormScope, swipeHistory, savedListingIds]
+    [user, authReady, listings, dormScope, swipeHistory, savedListingIds]
   );
 
   return (

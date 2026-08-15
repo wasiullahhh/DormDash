@@ -17,8 +17,9 @@ deliberately stubbed, and constraints that aren't obvious from the code.
 - **No router.** Navigation is local `useState` tab-switching in
   `App.jsx`, not react-router. Keep it that way unless asked — the app
   is five flat screens plus one modal, a router is unneeded weight.
-- **Data**: Supabase (Postgres/Auth/Storage) is the target backend, but
-  **not wired up yet** — see "Current state" below.
+- **Data**: Supabase. Auth (email/password, sign-up + sign-in) is wired
+  and live against a real project. Firestore-equivalent data (listings,
+  profiles) is still mock/local state — see "Current state" below.
 - **AI**: Gemini API, planned for vision (photo → structured listing),
   text cleanup (voice-to-text → description), and ranking
   (personalized swipe feed via structured JSON / function calling).
@@ -40,9 +41,11 @@ src/
                             useSession() hook. This is what "no prop
                             drilling" refers to in the original brief.
   lib/
-    mockData.js           — CURRENT_USER, MOCK_LISTINGS, DORMS, CATEGORIES
+    mockData.js           — MOCK_LISTINGS, DORMS, CATEGORIES (no more
+                            mock CURRENT_USER — the signed-in user now
+                            comes from Supabase Auth)
     gemini.js              — stubbed AI functions (see below)
-    supabase.js            — config placeholder, NOT initialized
+    supabase.js            — live client (createClient + ALLOWED_EMAIL_DOMAIN)
   components/             — shared, reusable across pages
     SwipeCard/             — the signature drag-to-swipe card
     ListingPhoto/           — colored placeholder standing in for real photos
@@ -81,8 +84,26 @@ and reconcile `tokens.css` against it.
 
 ## Current state — what's real vs. stubbed
 
-- All data is in-memory mock data (`lib/mockData.js`), held in
-  `SessionContext`. Posting an item, swiping, and saving all mutate
+- **Auth is real.** `src/lib/supabase.js` exports a live client
+  (`createClient` against a real project — `.env` has real keys, don't
+  print/log its contents). `SessionContext.jsx` calls
+  `supabase.auth.signUp` / `signInWithPassword` / `signOut`, restores
+  the session on load via `getSession()`, and stays in sync via
+  `onAuthStateChange`. Sign-up/sign-in are gated client-side to
+  `@my.centennialcollege.ca` emails (`ALLOWED_EMAIL_DOMAIN` in
+  `lib/supabase.js` — also enforce this server-side via a Supabase Auth
+  Hook before this goes anywhere near production). This project has
+  **email confirmation enabled**, so a fresh sign-up won't get a
+  session until the user clicks the confirmation link — `registerUser`
+  returns `{ success: false, error: "...check your email..." }` in
+  that case, it's not a bug.
+- **User profile fields are NOT persisted.** Supabase Auth only knows
+  email/password/metadata. `toAppUser()` in `SessionContext.jsx`
+  defaults `dorm`, `room`, `interests`, `sustainabilityScore` to
+  empty/zero on every session — there's no `profiles` table yet. If
+  you build one, hydrate from it there instead of defaulting.
+- **Listings are still in-memory mock data** (`lib/mockData.js`), held
+  in `SessionContext`. Posting an item, swiping, and saving all mutate
   local React state only — nothing persists across a reload.
 - `lib/gemini.js` exports `curateListings`, `parseListingFromPhoto`,
   `generateDigest` — all stubbed with `setTimeout` latency and
@@ -91,13 +112,10 @@ and reconcile `tokens.css` against it.
   should look like). Wire real Gemini calls by replacing the function
   bodies; keep the signatures and return shapes so the UI doesn't need
   to change.
-- `lib/supabase.js` only exports a `supabaseConfig` object read from
-  `import.meta.env`. `createClient` is **not called** — the
-  `@supabase/supabase-js` package isn't even installed yet. Do that as
-  its own step, then export the Supabase client and swap
-  `SessionContext`'s mock state for Supabase reads/writes.
 - `.env.example` lists the expected Supabase + Gemini env vars.
-  `.env` itself is gitignored — never commit real keys.
+  `.env` itself is gitignored and has real Supabase keys in it locally
+  — never commit it, never echo its contents into a commit message,
+  issue, or chat log.
 
 ## Known gotcha: pointer capture in SwipeCard
 
@@ -115,18 +133,20 @@ will silently break again.
 
 ## Not built yet (next steps, roughly in order)
 
-1. Install `@supabase/supabase-js`, create a Supabase client, and wire
-   Supabase Auth restricted to the campus `.edu` domain
-   (`ALLOWED_EMAIL_DOMAIN` in `lib/supabase.js` is a placeholder).
-2. Replace `SessionContext`'s mock listings/user with Supabase
-   reads/writes; keep the same context shape so pages don't change.
-3. Wire real Supabase Storage upload in `PostItemPage` (currently just
+1. ~~Wire Supabase Auth~~ — done, see "Current state" above.
+2. Create a `profiles` table (dorm, room, interests, sustainabilityScore)
+   keyed on `auth.uid()`, and hydrate/update it from `ProfilePage`
+   instead of defaulting those fields every session.
+3. Replace `SessionContext`'s mock listings with a Supabase `listings`
+   table (reads/writes); keep the same context shape so pages don't
+   change.
+4. Wire real Supabase Storage upload in `PostItemPage` (currently just
    does `URL.createObjectURL` for a local preview).
-4. Replace the three `lib/gemini.js` stub bodies with real Gemini API
+5. Replace the three `lib/gemini.js` stub bodies with real Gemini API
    calls (vision for photo→listing, text cleanup, ranking).
-5. Match/meetup chat flow after a mutual "want it" — not built at all
+6. Match/meetup chat flow after a mutual "want it" — not built at all
    yet, out of scope for the shells phase.
-6. Periodic "you might want this" digest surfacing
+7. Periodic "you might want this" digest surfacing
    (`generateDigest` exists as a stub but nothing calls it yet).
 
 ## Running it

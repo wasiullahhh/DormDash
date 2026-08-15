@@ -14,13 +14,13 @@ import "./App.css";
 export default function App() {
   const [activeTab, setActiveTab] = useState("swipe");
   const [expandedListing, setExpandedListing] = useState(null);
-  const { user } = useSession();
+  const { user, authReady } = useSession();
 
   return (
     <div className="app-shell">
-      <Header onLoginClick={() => setShowLogin(true)} />
+      <Header />
 
-      {user ? (
+      {!authReady ? null : user ? (
         <>
           <main className="app-main">
             {activeTab === "swipe" && <SwipeFeedPage onExpand={setExpandedListing} />}
