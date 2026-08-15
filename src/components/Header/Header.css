@@ -26,3 +26,27 @@
   letter-spacing: 0.08em;
   color: rgba(250, 245, 232, 0.55);
 }
+
+.app-header__login-btn {
+  background: transparent;
+  color: var(--color-white);
+  border: 1px solid rgba(250, 245, 232, 0.12);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.app-header__login-btn:hover {
+  background: rgba(250, 245, 232, 0.03);
+}
+
+.app-header__user {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.app-header__user-name {
+  color: rgba(250, 245, 232, 0.9);
+  font-size: 0.9rem;
+}

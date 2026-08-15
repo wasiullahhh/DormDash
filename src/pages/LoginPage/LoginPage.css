@@ -1,0 +1,84 @@
+.login-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 10, 0.5);
+    z-index: 60;
+}
+
+.login-card {
+    width: 92%;
+    max-width: 420px;
+    background: var(--color-white);
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 8px 30px rgba(12, 18, 26, 0.25);
+    position: relative;
+}
+
+.login-close {
+    position: absolute;
+    right: 10px;
+    top: 8px;
+    background: transparent;
+    border: none;
+    font-size: 1.2rem;
+}
+
+.login-title {
+    margin: 0 0 12px 0;
+    font-family: var(--font-display);
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.login-label {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.9rem;
+}
+
+.login-label input {
+    margin-top: 6px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #e6e6e6;
+}
+
+.login-error {
+    color: #b32424;
+    font-size: 0.9rem;
+}
+
+.login-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.btn-primary {
+    background: var(--color-forest);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+}
+
+.btn-secondary {
+    background: transparent;
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    border-radius: 8px;
+}
+
+.login-note {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 10px;
+}

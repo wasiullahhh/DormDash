@@ -1,5 +1,7 @@
 import { useState } from "react";
 import Header from "./components/Header/Header";
+import LoginPage from "./pages/LoginPage/LoginPage";
+import { useSession } from "./context/SessionContext";
 import BottomNav from "./components/BottomNav/BottomNav";
 import SwipeFeedPage from "./pages/SwipeFeedPage/SwipeFeedPage";
 import MyDormPage from "./pages/MyDormPage/MyDormPage";
@@ -12,26 +14,33 @@ import "./App.css";
 export default function App() {
   const [activeTab, setActiveTab] = useState("swipe");
   const [expandedListing, setExpandedListing] = useState(null);
+  const { user } = useSession();
 
   return (
     <div className="app-shell">
-      <Header />
+      <Header onLoginClick={() => setShowLogin(true)} />
 
-      <main className="app-main">
-        {activeTab === "swipe" && <SwipeFeedPage onExpand={setExpandedListing} />}
-        {activeTab === "dorm" && <MyDormPage onExpand={setExpandedListing} />}
-        {activeTab === "post" && <PostItemPage onPosted={() => setActiveTab("dorm")} />}
-        {activeTab === "saved" && <SavedPage onExpand={setExpandedListing} />}
-        {activeTab === "profile" && <ProfilePage />}
-      </main>
+      {user ? (
+        <>
+          <main className="app-main">
+            {activeTab === "swipe" && <SwipeFeedPage onExpand={setExpandedListing} />}
+            {activeTab === "dorm" && <MyDormPage onExpand={setExpandedListing} />}
+            {activeTab === "post" && <PostItemPage onPosted={() => setActiveTab("dorm")} />}
+            {activeTab === "saved" && <SavedPage onExpand={setExpandedListing} />}
+            {activeTab === "profile" && <ProfilePage />}
+          </main>
 
-      <BottomNav activeTab={activeTab} onChange={setActiveTab} />
+          <BottomNav activeTab={activeTab} onChange={setActiveTab} />
 
-      {expandedListing && (
-        <ListingDetailPage
-          listing={expandedListing}
-          onClose={() => setExpandedListing(null)}
-        />
+          {expandedListing && (
+            <ListingDetailPage
+              listing={expandedListing}
+              onClose={() => setExpandedListing(null)}
+            />
+          )}
+        </>
+      ) : (
+        <LoginPage />
       )}
     </div>
   );
