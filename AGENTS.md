@@ -17,7 +17,7 @@ deliberately stubbed, and constraints that aren't obvious from the code.
 - **No router.** Navigation is local `useState` tab-switching in
   `App.jsx`, not react-router. Keep it that way unless asked — the app
   is five flat screens plus one modal, a router is unneeded weight.
-- **Data**: Firebase (Firestore/Auth/Storage) is the target backend, but
+- **Data**: Supabase (Postgres/Auth/Storage) is the target backend, but
   **not wired up yet** — see "Current state" below.
 - **AI**: Gemini API, planned for vision (photo → structured listing),
   text cleanup (voice-to-text → description), and ranking
@@ -42,7 +42,7 @@ src/
   lib/
     mockData.js           — CURRENT_USER, MOCK_LISTINGS, DORMS, CATEGORIES
     gemini.js              — stubbed AI functions (see below)
-    firebase.js             — config placeholder, NOT initialized
+    supabase.js            — config placeholder, NOT initialized
   components/             — shared, reusable across pages
     SwipeCard/             — the signature drag-to-swipe card
     ListingPhoto/           — colored placeholder standing in for real photos
@@ -91,12 +91,12 @@ and reconcile `tokens.css` against it.
   should look like). Wire real Gemini calls by replacing the function
   bodies; keep the signatures and return shapes so the UI doesn't need
   to change.
-- `lib/firebase.js` only exports a `firebaseConfig` object read from
-  `import.meta.env`. `initializeApp` is **not called** — the `firebase`
-  package isn't even installed yet. Do that as its own step, then
-  export `auth`/`db`/`storage` and swap `SessionContext`'s mock state
-  for Firestore reads/writes.
-- `.env.example` lists the expected Firebase + Gemini env vars.
+- `lib/supabase.js` only exports a `supabaseConfig` object read from
+  `import.meta.env`. `createClient` is **not called** — the
+  `@supabase/supabase-js` package isn't even installed yet. Do that as
+  its own step, then export the Supabase client and swap
+  `SessionContext`'s mock state for Supabase reads/writes.
+- `.env.example` lists the expected Supabase + Gemini env vars.
   `.env` itself is gitignored — never commit real keys.
 
 ## Known gotcha: pointer capture in SwipeCard
@@ -115,12 +115,12 @@ will silently break again.
 
 ## Not built yet (next steps, roughly in order)
 
-1. Install `firebase`, call `initializeApp`, wire Firebase Auth
-   restricted to the campus `.edu` domain (`ALLOWED_EMAIL_DOMAIN` in
-   `lib/firebase.js` is a placeholder).
-2. Replace `SessionContext`'s mock listings/user with Firestore
+1. Install `@supabase/supabase-js`, create a Supabase client, and wire
+   Supabase Auth restricted to the campus `.edu` domain
+   (`ALLOWED_EMAIL_DOMAIN` in `lib/supabase.js` is a placeholder).
+2. Replace `SessionContext`'s mock listings/user with Supabase
    reads/writes; keep the same context shape so pages don't change.
-3. Wire real Firebase Storage upload in `PostItemPage` (currently just
+3. Wire real Supabase Storage upload in `PostItemPage` (currently just
    does `URL.createObjectURL` for a local preview).
 4. Replace the three `lib/gemini.js` stub bodies with real Gemini API
    calls (vision for photo→listing, text cleanup, ranking).
