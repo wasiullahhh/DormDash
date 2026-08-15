@@ -15,7 +15,7 @@ const emptyDraft = {
 };
 
 export default function PostItemPage({ onPosted }) {
-  const { user, addListing } = useSession();
+  const { user } = useSession();
   const [photoFile, setPhotoFile] = useState(null);
   const [photoUrl, setPhotoUrl] = useState(null);
   const [voiceText, setVoiceText] = useState("");
@@ -32,15 +32,21 @@ export default function PostItemPage({ onPosted }) {
 
   const handleGenerate = async () => {
     setGenerating(true);
-    const result = await parseListingFromPhoto(photoFile, voiceText);
-    setDraft({
-      title: result.title,
-      description: result.description,
-      category: result.category,
-      condition: result.condition,
-      price: result.suggestedPriceRange.min,
-    });
-    setGenerating(false);
+    try {
+      const result = await parseListingFromPhoto(photoFile, voiceText);
+      setDraft({
+        title: result.title,
+        description: result.description,
+        category: result.category,
+        condition: result.condition,
+        price: result.suggestedPriceRange.min,
+      });
+    } catch (error) {
+      console.error("Error generating listing with Gemini:", error);
+      alert(error.message);
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleFieldChange = (field) => (e) => {

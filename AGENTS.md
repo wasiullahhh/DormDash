@@ -20,9 +20,13 @@ deliberately stubbed, and constraints that aren't obvious from the code.
 - **Data**: Supabase. Auth (email/password, sign-up + sign-in) is wired
   and live against a real project. Firestore-equivalent data (listings,
   profiles) is still mock/local state — see "Current state" below.
-- **AI**: Gemini API, planned for vision (photo → structured listing),
-  text cleanup (voice-to-text → description), and ranking
-  (personalized swipe feed via structured JSON / function calling).
+- **AI**: Gemini API (`gemini-2.5-flash`, raw `fetch` — no SDK dependency
+  added). `curateListings` (ranking) and `parseListingFromPhoto` (vision +
+  text → structured listing) are live, both using `responseSchema` for
+  structured JSON output. `generateDigest` is still a stub, see
+  "Current state". The API key is bundled into client JS (no backend to
+  hide it behind) — see the security note atop `lib/gemini.js` before
+  extending this further.
 - **Do not add a new npm dependency without asking first.** This was an
   explicit instruction from the project owner. That includes routing,
   animation, and icon libraries — the swipe gestures and icon set are
@@ -48,8 +52,11 @@ src/
                             plain strings and is NOT the same thing as
                             the real `buildings` table (see Database
                             schema) — only used by mock listings now.
-    gemini.js              — stubbed AI functions (see below)
-    supabase.js            — live client (createClient + ALLOWED_EMAIL_DOMAIN)
+    gemini.js              — curateListings/parseListingFromPhoto are
+                            live (see below); generateDigest still stubbed
+    supabase.js            — live client (createClient + ALLOWED_EMAIL_DOMAIN).
+                            Env var is VITE_SUPABASE_PUBLISHABLE_KEY, not
+                            the older VITE_SUPABASE_ANON_KEY naming.
   components/             — shared, reusable across pages
     SwipeCard/             — the signature drag-to-swipe card
     ListingPhoto/           — colored placeholder standing in for real photos
@@ -159,23 +166,26 @@ reintroduce `id` for this table anywhere.
   (`buildings` state, public read, no auth needed) and used by the
   dorm picker in both `OnboardingPage` and `ProfilePage` — they submit
   a real `building_id` uuid, not a text name.
-- **Listings are still in-memory mock data** (`lib/mockData.js`'s
-  `MOCK_LISTINGS`/`DORMS`), held in `SessionContext`. Posting an item,
-  swiping, and saving all mutate local React state only — none of it
-  touches the real `listings`/`requests` tables yet. `mockData.js`'s
-  `DORMS` (plain strings) is now unrelated to the real `buildings`
-  table — don't conflate them when migrating listings over.
-- `lib/gemini.js` exports `curateListings`, `parseListingFromPhoto`,
-  `generateDigest` — all stubbed with `setTimeout` latency and
-  deterministic mock logic, but with the **real intended return
-  shapes** (structured JSON, matching what function-calling output
-  should look like). Wire real Gemini calls by replacing the function
-  bodies; keep the signatures and return shapes so the UI doesn't need
-  to change.
+- **Listings are split-brain right now — this is the next thing to fix.**
+  `PostItemPage` writes real rows straight to the `listings` table
+  (uploads the photo to a `listing-images` Storage bucket first, then
+  inserts with `seller_id`/`building_id`/`pickup_location` from the
+  signed-in user's real profile). But `SwipeFeedPage`, `MyDormPage`, and
+  `SavedPage` all still read from `SessionContext`'s `listings` state,
+  which is `lib/mockData.js`'s `MOCK_LISTINGS` and never includes what
+  `PostItemPage` just posted. Swiping/saving also still only mutate that
+  local mock state. So: newly-posted items are real and in the database,
+  but invisible everywhere in the app except directly in Supabase's
+  Table Editor. Fixing this is "Not built yet" item 3 below — don't be
+  surprised a freshly-posted item doesn't show up in the feed.
+- **Gemini is live for two of three functions.** `curateListings` and
+  `parseListingFromPhoto` call the real API (see `lib/gemini.js` and the
+  "AI" bullet above). `generateDigest` is still the original stub —
+  nothing calls it yet either way.
 - `.env.example` lists the expected Supabase + Gemini env vars.
-  `.env` itself is gitignored and has real Supabase keys in it locally
-  — never commit it, never echo its contents into a commit message,
-  issue, or chat log.
+  `.env` itself is gitignored and has real Supabase + Gemini keys in it
+  locally — never commit it, never echo its contents into a commit
+  message, issue, or chat log.
 
 ## Known gotcha: pointer capture in SwipeCard
 
@@ -196,22 +206,24 @@ will silently break again.
 1. ~~Wire Supabase Auth~~ — done, see "Current state" above.
 2. ~~Sync profile fields to a real table~~ — done (`public.users`, see
    "Current state" and "Database schema" above).
-3. Replace `SessionContext`'s mock listings with the real `listings`
-   table (reads/writes); keep the same context shape so pages don't
-   change. `seller_id`/`building_id` map to `users.user_id`/
-   `buildings.building_id` — reuse `SessionContext.buildings` for the
-   dorm picker instead of `mockData.js`'s `DORMS`.
+3. **Fix the listings split-brain** — replace `SessionContext`'s mock
+   `listings` with real reads from the `listings` table (join/fetch
+   `seller_id`/`building_id` against `users`/`buildings`), so what
+   `PostItemPage` already posts shows up in `SwipeFeedPage`/`MyDormPage`/
+   `SavedPage`. Keep the same context shape so pages don't change more
+   than necessary.
 4. Wire the real "want it" flow to the `requests` table instead of
    local `recordSwipe`/`savedListingIds` state.
-5. Wire real Supabase Storage upload in `PostItemPage` (currently just
-   does `URL.createObjectURL` for a local preview) — populates
-   `listings.photos`.
-6. Replace the three `lib/gemini.js` stub bodies with real Gemini API
-   calls (vision for photo→listing, text cleanup, ranking).
+5. ~~Wire real Supabase Storage upload in PostItemPage~~ — done
+   (`listing-images` bucket).
+6. ~~Replace the Gemini stub bodies with real API calls~~ — done for
+   `curateListings`/`parseListingFromPhoto`. `generateDigest` is still
+   a stub (see "Current state").
 7. Match/meetup chat flow after a mutual "want it" — `messages` table
    exists, nothing built against it yet.
-8. Periodic "you might want this" digest surfacing
-   (`generateDigest` exists as a stub but nothing calls it yet).
+8. Periodic "you might want this" digest surfacing — wire
+   `generateDigest` to real Gemini (still a stub) and call it from
+   somewhere; nothing invokes it today.
 9. ID verification flow (`student_id_number`/`student_id_photo_url`/
    `verification_status` on `users`) — needs a Storage bucket for the
    photo upload, not started.

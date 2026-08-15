@@ -6,7 +6,7 @@ import { IconHeart, IconX, IconSparkle } from "../../components/icons/Icons";
 import "./SwipeFeedPage.css";
 
 export default function SwipeFeedPage({ onExpand }) {
-  const { user, listings, dormScope, setDormScope, recordSwipe } = useSession();
+  const { user, listings, dormScope, setDormScope, recordSwipe, swipeHistory } = useSession();
   const [order, setOrder] = useState([]);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -22,7 +22,12 @@ export default function SwipeFeedPage({ onExpand }) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    curateListings(user, scopedListings).then((ranked) => {
+    // swipeHistory is intentionally read here but not in the deps array —
+    // re-curating on every single swipe would reset `index` back to 0 and
+    // re-show cards mid-session. Ranking still reflects the latest history
+    // whenever this effect re-runs for another reason (scope toggle, tab
+    // re-entry), which is a reasonable cadence for a swipe feed.
+    curateListings(user, scopedListings, swipeHistory).then((ranked) => {
       if (cancelled) return;
       setOrder(ranked.map((r) => r.listingId));
       setIndex(0);
@@ -31,6 +36,7 @@ export default function SwipeFeedPage({ onExpand }) {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopedListings, user]);
 
   const stack = order

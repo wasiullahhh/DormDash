@@ -1,49 +1,127 @@
-// Gemini API wrapper — stubbed with typed mock responses so the UI can be
-// built and tested before real API calls are wired in.
+// Gemini API wrapper. curateListings and parseListingFromPhoto call the
+// real Gemini API using structured JSON output (responseSchema) so the
+// UI never has to parse free text. generateDigest is still a stub — see
+// its own comment below.
 //
-// Real implementation will call the Gemini API (gemini-1.5-flash or latest
-// flash-tier model) using function calling / structured JSON output so
-// responses don't need free-text parsing. Swap the stub bodies below for
-// live `fetch`/SDK calls once VITE_GEMINI_API_KEY is wired up — the
-// function signatures and return shapes are the contract the UI relies on.
+// SECURITY NOTE: VITE_GEMINI_API_KEY is bundled into client-side JS and
+// is visible to anyone who opens dev tools, same as the Supabase key.
+// Unlike the Supabase key, there's no RLS-equivalent backstop here — set
+// a spending cap / API restriction on the key in Google AI Studio, and
+// before this goes past the hackathon, proxy these calls through a
+// server (e.g. a Supabase Edge Function) instead of calling from the browser.
 
-const MOCK_LATENCY_MS = 500;
+import { CATEGORIES } from "./mockData";
 
-function delay(ms = MOCK_LATENCY_MS) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+// "-latest" alias, not a pinned version — Google deprecates pinned flash
+// models for new API keys surprisingly fast (confirmed: gemini-2.5-flash
+// and gemini-2.5-flash-lite both 404 "no longer available to new users"
+// as of Aug 2026, despite still being listed by the models.list endpoint).
+const GEMINI_MODEL = "gemini-flash-latest";
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const CONDITIONS = ["New", "Like new", "Good", "Fair", "Poor"];
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function callGemini({ parts, responseSchema }) {
+  if (!GEMINI_API_KEY) {
+    throw new Error("Gemini API key is missing — add VITE_GEMINI_API_KEY to .env and restart the dev server.");
+  }
+
+  const res = await fetch(`${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema,
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Gemini API error (${res.status}): ${body.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    throw new Error("Gemini returned an empty response.");
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("Gemini returned malformed JSON.");
+  }
 }
 
 /**
- * Rank/filter a pool of listings for a given user, simulating Gemini's
- * personalized curation for the swipe feed.
+ * Rank a pool of listings for a given user's swipe feed, inferring taste
+ * from what they've swiped right/left on so far (there's no separate
+ * "interests" field in the schema — swipe history is the real signal).
  *
- * @param {object} userProfile - { interests, dorm, swipeHistory, ... }
+ * @param {object} userProfile - the signed-in user (at least { name })
  * @param {object[]} listings - pool of active listings to rank
+ * @param {{listingId: string, direction: "left"|"right"}[]} swipeHistory
  * @returns {Promise<{listingId: string, relevanceScore: number, reason: string}[]>}
  */
-export async function curateListings(userProfile, listings) {
-  await delay();
+export async function curateListings(userProfile, listings, swipeHistory = []) {
+  if (listings.length === 0) return [];
 
-  const interests = (userProfile?.interests || []).map((i) => i.toLowerCase());
+  const titleFor = (id) => listings.find((l) => l.id === id)?.title;
+  const liked = swipeHistory.filter((s) => s.direction === "right").map((s) => titleFor(s.listingId)).filter(Boolean);
+  const passed = swipeHistory.filter((s) => s.direction === "left").map((s) => titleFor(s.listingId)).filter(Boolean);
 
-  return listings
-    .map((listing) => {
-      const text = `${listing.title} ${listing.description} ${listing.category}`.toLowerCase();
-      const matches = interests.filter((interest) => text.includes(interest.split(" ")[0]));
-      const baseScore = 0.5 + matches.length * 0.15;
-      const priceBoost = listing.price <= 20 ? 0.1 : 0;
-      const relevanceScore = Math.min(1, Number((baseScore + priceBoost).toFixed(2)));
+  const prompt = `You are ranking dorm marketplace listings for a swipe-style feed on DormDash.
+User: ${userProfile?.name || "a student"}.
+Items they've liked (swiped right) so far: ${liked.length ? liked.join(", ") : "none yet"}.
+Items they've passed on (swiped left) so far: ${passed.length ? passed.join(", ") : "none yet"}.
 
-      return {
-        listingId: listing.id,
-        relevanceScore,
-        reason:
-          matches.length > 0
-            ? `Matches your interest in "${matches[0]}"`
-            : "General match for your dorm and price range",
-      };
-    })
-    .sort((a, b) => b.relevanceScore - a.relevanceScore);
+Infer their taste from likes/passes and rank the listings below by relevance to them, most relevant first.
+If there's no history yet, rank by general appeal instead (useful items, good condition, reasonable price).
+Return every listing exactly once.
+
+Listings:
+${listings
+  .map((l) => `- id: ${l.id} | title: "${l.title}" | category: ${l.category} | price: $${l.price} | condition: ${l.condition} | description: "${l.description}"`)
+  .join("\n")}`;
+
+  try {
+    return await callGemini({
+      parts: [{ text: prompt }],
+      responseSchema: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            listingId: { type: "string", enum: listings.map((l) => l.id) },
+            relevanceScore: { type: "number" },
+            reason: { type: "string" },
+          },
+          required: ["listingId", "relevanceScore", "reason"],
+        },
+      },
+    });
+  } catch (err) {
+    // The swipe feed is the core loop of the app — a ranking failure
+    // shouldn't take it down. Fall back to the pool's natural order.
+    console.error("Gemini curateListings failed, falling back to default order:", err.message);
+    return listings.map((l, i) => ({
+      listingId: l.id,
+      relevanceScore: 1 - i / listings.length,
+      reason: "Default order (AI ranking unavailable)",
+    }));
+  }
 }
 
 /**
@@ -55,35 +133,60 @@ export async function curateListings(userProfile, listings) {
  * @returns {Promise<{title: string, description: string, category: string, condition: string, suggestedPriceRange: {min: number, max: number}, tags: string[]}>}
  */
 export async function parseListingFromPhoto(imageFile, voiceText) {
-  await delay(900);
+  const trimmedText = (voiceText || "").trim();
+  if (!imageFile && !trimmedText) {
+    throw new Error("Add a photo or a description first.");
+  }
 
-  const cleanedText = (voiceText || "").trim();
-  const firstSentence = cleanedText.split(/[.!?]/)[0] || "Dorm item";
-  const title = firstSentence
-    .replace(/^(um|uh|so|like|it's|its|this is)\s+/i, "")
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .slice(0, 48);
+  const parts = [
+    {
+      text: `You're helping a college student list an item for sale/giveaway on a dorm move-in/move-out marketplace app called DormDash.
+${imageFile ? "Look at the attached photo of the item." : ""}
+${trimmedText ? `Here's what they said about it (may be a messy voice-to-text transcript): "${trimmedText}"` : ""}
 
-  return {
-    title: title || "Untitled Item",
-    description:
-      cleanedText.length > 0
-        ? `${cleanedText.charAt(0).toUpperCase()}${cleanedText.slice(1)}`
-        : "No description provided yet — add a few details about condition and why you're selling.",
-    category: "Misc",
-    condition: "Good",
-    suggestedPriceRange: { min: 8, max: 25 },
-    tags: cleanedText
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((w) => w.length > 4)
-      .slice(0, 4),
-  };
+Write a clean, appealing listing based on this.
+- category must be exactly one of: ${CATEGORIES.join(", ")}
+- condition must be exactly one of: ${CONDITIONS.join(", ")}
+- suggest a fair secondhand price range in USD for a college dorm marketplace
+- title under 60 characters
+- description under 400 characters, friendly and specific
+- 2-4 short lowercase tags`,
+    },
+  ];
+
+  if (imageFile) {
+    const base64 = await fileToBase64(imageFile);
+    parts.push({ inlineData: { mimeType: imageFile.type || "image/jpeg", data: base64 } });
+  }
+
+  return callGemini({
+    parts,
+    responseSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        description: { type: "string" },
+        category: { type: "string", enum: CATEGORIES },
+        condition: { type: "string", enum: CONDITIONS },
+        suggestedPriceRange: {
+          type: "object",
+          properties: {
+            min: { type: "number" },
+            max: { type: "number" },
+          },
+          required: ["min", "max"],
+        },
+        tags: { type: "array", items: { type: "string" } },
+      },
+      required: ["title", "description", "category", "condition", "suggestedPriceRange", "tags"],
+    },
+  });
 }
 
 /**
  * Build a short "you might want this" digest based on swipe history and
- * stated needs, for periodic re-engagement prompts.
+ * stated needs, for periodic re-engagement prompts. STILL A STUB — no
+ * screen calls this yet, so it hasn't been wired to the real API.
  *
  * @param {object} userProfile
  * @param {object[]} swipeHistory - [{ listingId, direction, at }]
@@ -91,8 +194,6 @@ export async function parseListingFromPhoto(imageFile, voiceText) {
  * @returns {Promise<{headline: string, listingIds: string[]}>}
  */
 export async function generateDigest(userProfile, swipeHistory, listings) {
-  await delay();
-
   const likedIds = new Set(
     swipeHistory.filter((s) => s.direction === "right").map((s) => s.listingId)
   );
