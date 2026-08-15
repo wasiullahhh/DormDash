@@ -1,0 +1,117 @@
+.onboarding-page {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-kraft-light);
+  z-index: 60;
+  padding: var(--space-md);
+}
+
+.onboarding-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.onboarding-stamp {
+  color: var(--color-forest-dark);
+  font-size: 0.7rem;
+}
+
+.onboarding-title {
+  margin-top: var(--space-sm);
+  font-size: 1.25rem;
+}
+
+.onboarding-subtitle {
+  color: var(--color-ink-muted);
+  font-size: 0.85rem;
+  margin-top: var(--space-2xs);
+}
+
+.onboarding-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+}
+
+.onboarding-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-muted);
+}
+
+.onboarding-empty-note {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.75rem;
+  color: var(--color-ink-muted);
+}
+
+.onboarding-optional {
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: var(--font-body);
+}
+
+.onboarding-label input,
+.onboarding-label select {
+  border: 1px solid var(--color-kraft-dark);
+  background: var(--color-white);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  font-size: 0.9rem;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+
+.onboarding-error {
+  color: var(--color-stamp-dark);
+  font-size: 0.85rem;
+}
+
+.onboarding-notice {
+  color: var(--color-forest-dark);
+  font-size: 0.85rem;
+}
+
+.onboarding-submit {
+  border: none;
+  background: var(--color-forest);
+  color: var(--color-white);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.95rem;
+  box-shadow: var(--shadow-raised);
+}
+
+.onboarding-submit:disabled {
+  opacity: 0.6;
+}
+
+.onboarding-signout {
+  display: block;
+  margin: var(--space-md) auto 0;
+  background: none;
+  border: none;
+  color: var(--color-ink-muted);
+  font-size: 0.78rem;
+  text-decoration: underline;
+}

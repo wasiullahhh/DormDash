@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Header from "./components/Header/Header";
 import LoginPage from "./pages/LoginPage/LoginPage";
+import OnboardingPage from "./pages/OnboardingPage/OnboardingPage";
 import { useSession } from "./context/SessionContext";
 import BottomNav from "./components/BottomNav/BottomNav";
 import SwipeFeedPage from "./pages/SwipeFeedPage/SwipeFeedPage";
@@ -14,13 +15,17 @@ import "./App.css";
 export default function App() {
   const [activeTab, setActiveTab] = useState("swipe");
   const [expandedListing, setExpandedListing] = useState(null);
-  const { user, authReady } = useSession();
+  const { user, authReady, profileComplete } = useSession();
 
   return (
     <div className="app-shell">
       <Header />
 
-      {!authReady ? null : user ? (
+      {!authReady ? null : !user ? (
+        <LoginPage />
+      ) : !profileComplete ? (
+        <OnboardingPage />
+      ) : (
         <>
           <main className="app-main">
             {activeTab === "swipe" && <SwipeFeedPage onExpand={setExpandedListing} />}
@@ -39,8 +44,6 @@ export default function App() {
             />
           )}
         </>
-      ) : (
-        <LoginPage />
       )}
     </div>
   );

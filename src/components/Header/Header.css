@@ -1,4 +1,6 @@
 .app-header {
+  position: relative;
+  z-index: 70; /* above the full-screen LoginPage/OnboardingPage overlays (z-index: 60) */
   height: var(--header-height);
   display: flex;
   align-items: center;

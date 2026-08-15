@@ -36,14 +36,18 @@ src/
   App.jsx                — tab state + routes to the 5 pages, renders
                             BottomNav and the ListingDetailPage modal
   context/
-    SessionContext.jsx   — the app's only global state: user, listings,
-                            dormScope, swipeHistory, savedListingIds.
-                            useSession() hook. This is what "no prop
-                            drilling" refers to in the original brief.
+    SessionContext.jsx   — the app's only global state: user (auth
+                            identity), profile (public.users row),
+                            profileComplete, saveProfile, buildings,
+                            listings (still mock), dormScope,
+                            swipeHistory, savedListingIds. useSession()
+                            hook. This is what "no prop drilling" refers
+                            to in the original brief.
   lib/
-    mockData.js           — MOCK_LISTINGS, DORMS, CATEGORIES (no more
-                            mock CURRENT_USER — the signed-in user now
-                            comes from Supabase Auth)
+    mockData.js           — MOCK_LISTINGS, DORMS, CATEGORIES. DORMS is
+                            plain strings and is NOT the same thing as
+                            the real `buildings` table (see Database
+                            schema) — only used by mock listings now.
     gemini.js              — stubbed AI functions (see below)
     supabase.js            — live client (createClient + ALLOWED_EMAIL_DOMAIN)
   components/             — shared, reusable across pages
@@ -52,6 +56,7 @@ src/
     ListingGridItem/         — grid tile used by MyDorm + Saved pages
     BottomNav/, Header/, icons/Icons.jsx (hand-drawn SVG icon set)
   pages/                   — one folder per screen, co-located CSS
+    OnboardingPage          — mandatory post-signup gate, see Current state
     SwipeFeedPage, MyDormPage, PostItemPage, SavedPage,
     ProfilePage, ListingDetailPage
   styles/tokens.css        — design tokens, imported by index.css
@@ -82,6 +87,44 @@ and reconcile `tokens.css` against it.
   a real `<img>` once Storage is wired up; keep the component's props
   contract (`tone`, `label`) so callers don't need to change.
 
+## Database schema (Supabase Postgres)
+
+This is the real, full schema the project owner designed — the app only
+uses a fraction of it so far (see "Current state"). All PKs are `uuid`.
+**Note the naming: `users.user_id` is the PK, not `id`** — this bit us
+once already (PostgREST error "column users.id does not exist"); don't
+reintroduce `id` for this table anywhere.
+
+- **`buildings`** — `building_id` (PK), `name`, `address`, `created_at`.
+  Public reference data, no RLS. Seeded manually via SQL, not through
+  the app.
+- **`users`** — `user_id` (PK, FK → `auth.users.id`), `full_name`
+  (**not** `name`), `email`, `student_id_number`, `student_id_photo_url`,
+  `verification_status` (default `'pending'`), `building_id` (FK →
+  `buildings`), `room_number`, `phone_number`, `rating` (default `0`),
+  `is_active` (default `true`), `created_at`. RLS on, policies:
+  authenticated can SELECT all rows, INSERT/UPDATE only their own
+  (`auth.uid() = user_id`).
+- **`listings`** — `listing_id` (PK), `seller_id` (FK → `users`),
+  `title`, `description`, `category`, `price`, `is_free`, `condition`,
+  `photos` (`text[]`), `building_id` (FK → `buildings`), `status`
+  (default `'available'`), `pickup_location`, `created_at`, `expires_at`.
+- **`requests`** — `request_id` (PK), `listing_id` (FK → `listings`),
+  `buyer_id` (FK → `users`), `status` (default `'pending'`),
+  `created_at`, `updated_at`. This is the real "want it" / match
+  mechanism once wired — maps to what `recordSwipe`/`savedListingIds`
+  currently fake in local state.
+- **`messages`** — `message_id` (PK), `request_id` (FK → `requests`),
+  `sender_id` (FK → `users`), `content`, `created_at`. The chat flow
+  mentioned in "Not built yet" below.
+- **`reports`** — `report_id` (PK), `reported_by` (FK → `users`),
+  `listing_id` (FK → `listings`), `reason`, `status` (default `'open'`),
+  `created_at`. Moderation — not touched by the app at all yet.
+- **`impact_log`** — `log_id` (PK), `request_id` (FK → `requests`),
+  `weight_diverted_estimate`, `dollar_value_estimate`, `building_id`
+  (FK → `buildings`), `created_at`. The sustainability-tracking
+  differentiator from the original brief — not touched yet.
+
 ## Current state — what's real vs. stubbed
 
 - **Auth is real.** `src/lib/supabase.js` exports a live client
@@ -97,14 +140,31 @@ and reconcile `tokens.css` against it.
   session until the user clicks the confirmation link — `registerUser`
   returns `{ success: false, error: "...check your email..." }` in
   that case, it's not a bug.
-- **User profile fields are NOT persisted.** Supabase Auth only knows
-  email/password/metadata. `toAppUser()` in `SessionContext.jsx`
-  defaults `dorm`, `room`, `interests`, `sustainabilityScore` to
-  empty/zero on every session — there's no `profiles` table yet. If
-  you build one, hydrate from it there instead of defaulting.
-- **Listings are still in-memory mock data** (`lib/mockData.js`), held
-  in `SessionContext`. Posting an item, swiping, and saving all mutate
-  local React state only — nothing persists across a reload.
+- **User profile sync to `public.users` is real.** `SessionContext.jsx`'s
+  `establishSession()` upserts `{ user_id, email }` on every sign-in/
+  sign-up/restored-session (`syncUserRow`), then loads the full row into
+  `profile`. `OnboardingPage` is a **mandatory gate** in `App.jsx` shown
+  whenever `profile.full_name` is empty — `profileComplete` in
+  `SessionContext` is literally `Boolean(profile?.full_name)`.
+  `saveProfile({ name, building, phone })` writes `full_name`/
+  `building_id`/`phone_number` and self-heals if a column turns out not
+  to exist (drops just that key, keeps the rest, and for `full_name`
+  specifically falls back to Auth `user_metadata` so nothing's lost).
+  **Deliberately not collected in onboarding**: `room_number` (product
+  decision — "too invasive", not a schema limitation; the column exists
+  and is fine to use elsewhere) and `student_id_number`/
+  `student_id_photo_url`/`verification_status` (a separate ID-
+  verification feature, needs Storage for the photo, not built).
+- **`buildings` is real.** Loaded once on mount in `SessionContext`
+  (`buildings` state, public read, no auth needed) and used by the
+  dorm picker in both `OnboardingPage` and `ProfilePage` — they submit
+  a real `building_id` uuid, not a text name.
+- **Listings are still in-memory mock data** (`lib/mockData.js`'s
+  `MOCK_LISTINGS`/`DORMS`), held in `SessionContext`. Posting an item,
+  swiping, and saving all mutate local React state only — none of it
+  touches the real `listings`/`requests` tables yet. `mockData.js`'s
+  `DORMS` (plain strings) is now unrelated to the real `buildings`
+  table — don't conflate them when migrating listings over.
 - `lib/gemini.js` exports `curateListings`, `parseListingFromPhoto`,
   `generateDigest` — all stubbed with `setTimeout` latency and
   deterministic mock logic, but with the **real intended return
@@ -134,20 +194,30 @@ will silently break again.
 ## Not built yet (next steps, roughly in order)
 
 1. ~~Wire Supabase Auth~~ — done, see "Current state" above.
-2. Create a `profiles` table (dorm, room, interests, sustainabilityScore)
-   keyed on `auth.uid()`, and hydrate/update it from `ProfilePage`
-   instead of defaulting those fields every session.
-3. Replace `SessionContext`'s mock listings with a Supabase `listings`
+2. ~~Sync profile fields to a real table~~ — done (`public.users`, see
+   "Current state" and "Database schema" above).
+3. Replace `SessionContext`'s mock listings with the real `listings`
    table (reads/writes); keep the same context shape so pages don't
-   change.
-4. Wire real Supabase Storage upload in `PostItemPage` (currently just
-   does `URL.createObjectURL` for a local preview).
-5. Replace the three `lib/gemini.js` stub bodies with real Gemini API
+   change. `seller_id`/`building_id` map to `users.user_id`/
+   `buildings.building_id` — reuse `SessionContext.buildings` for the
+   dorm picker instead of `mockData.js`'s `DORMS`.
+4. Wire the real "want it" flow to the `requests` table instead of
+   local `recordSwipe`/`savedListingIds` state.
+5. Wire real Supabase Storage upload in `PostItemPage` (currently just
+   does `URL.createObjectURL` for a local preview) — populates
+   `listings.photos`.
+6. Replace the three `lib/gemini.js` stub bodies with real Gemini API
    calls (vision for photo→listing, text cleanup, ranking).
-6. Match/meetup chat flow after a mutual "want it" — not built at all
-   yet, out of scope for the shells phase.
-7. Periodic "you might want this" digest surfacing
+7. Match/meetup chat flow after a mutual "want it" — `messages` table
+   exists, nothing built against it yet.
+8. Periodic "you might want this" digest surfacing
    (`generateDigest` exists as a stub but nothing calls it yet).
+9. ID verification flow (`student_id_number`/`student_id_photo_url`/
+   `verification_status` on `users`) — needs a Storage bucket for the
+   photo upload, not started.
+10. Sustainability impact tracking (`impact_log` table) — the
+    landfill-diversion differentiator from the original brief, not
+    started.
 
 ## Running it
 
