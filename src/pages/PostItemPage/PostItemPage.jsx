@@ -15,7 +15,8 @@ const emptyDraft = {
 };
 
 export default function PostItemPage({ onPosted }) {
-  const { user } = useSession();
+  const { profile, buildings, refreshListings } = useSession();
+  const dormName = buildings.find((b) => b.building_id === profile?.building_id)?.name || "your dorm";
   const [photoFile, setPhotoFile] = useState(null);
   const [photoUrl, setPhotoUrl] = useState(null);
   const [voiceText, setVoiceText] = useState("");
@@ -116,6 +117,7 @@ export default function PostItemPage({ onPosted }) {
 
     if (listingError) throw listingError;
 
+    await refreshListings();
     setPosted(true);
 
     setTimeout(() => {
@@ -136,7 +138,7 @@ export default function PostItemPage({ onPosted }) {
     return (
       <div className="post-item post-item--confirm">
         <span className="stamp-badge post-item__confirm-stamp">Posted</span>
-        <p>Your item is live for {user.dorm}.</p>
+        <p>Your item is live for {dormName}.</p>
       </div>
     );
   }
@@ -212,7 +214,7 @@ export default function PostItemPage({ onPosted }) {
       </div>
 
       <button type="submit" className="post-item__submit">
-        Post to {user.dorm}
+        Post to {dormName}
       </button>
     </form>
   );

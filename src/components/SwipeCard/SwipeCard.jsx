@@ -101,6 +101,7 @@ export default function SwipeCard({
       )}
 
       <ListingPhoto
+        src={listing.photoUrl}
         tone={listing.photoTone}
         label={listing.photoLabel}
         className="swipe-card__photo"

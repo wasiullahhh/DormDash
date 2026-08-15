@@ -6,18 +6,19 @@ import { IconHeart, IconX, IconSparkle } from "../../components/icons/Icons";
 import "./SwipeFeedPage.css";
 
 export default function SwipeFeedPage({ onExpand }) {
-  const { user, listings, dormScope, setDormScope, recordSwipe, swipeHistory } = useSession();
+  const { user, profile, listings, dormScope, setDormScope, recordSwipe, swipeHistory } = useSession();
   const [order, setOrder] = useState([]);
   const [index, setIndex] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const scopedListings = useMemo(
-    () =>
-      dormScope === "mine"
-        ? listings.filter((l) => l.dorm === user.dorm)
-        : listings,
-    [listings, dormScope, user.dorm]
-  );
+  const scopedListings = useMemo(() => {
+    // Never show your own postings in the swipe feed — nothing to curate
+    // or "want" about an item you listed yourself.
+    const notMine = listings.filter((l) => l.seller.id !== user?.id);
+    return dormScope === "mine"
+      ? notMine.filter((l) => l.buildingId === profile?.building_id)
+      : notMine;
+  }, [listings, dormScope, profile?.building_id, user?.id]);
 
   useEffect(() => {
     let cancelled = false;

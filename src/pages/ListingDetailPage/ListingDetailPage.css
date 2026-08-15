@@ -162,6 +162,16 @@
   font-size: 0.9rem;
 }
 
+.listing-detail__own-notice {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-navy);
+  font-size: 0.8rem;
+  transform: none;
+}
+
 .listing-detail__want--active {
   background: var(--color-forest-dark);
 }

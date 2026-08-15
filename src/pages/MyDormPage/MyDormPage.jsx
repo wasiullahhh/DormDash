@@ -4,15 +4,16 @@ import { IconDorm } from "../../components/icons/Icons";
 import "./MyDormPage.css";
 
 export default function MyDormPage({ onExpand }) {
-  const { user, listings } = useSession();
-  const dormListings = listings.filter((l) => l.dorm === user.dorm);
+  const { profile, buildings, listings } = useSession();
+  const dormListings = listings.filter((l) => l.buildingId === profile?.building_id);
+  const buildingName = buildings.find((b) => b.building_id === profile?.building_id)?.name;
 
   return (
     <div className="my-dorm">
       <header className="my-dorm__header">
         <IconDorm className="my-dorm__icon" />
         <div>
-          <h2 className="my-dorm__title">{user.dorm}</h2>
+          <h2 className="my-dorm__title">{buildingName || "Set your dorm in Profile"}</h2>
           <p className="meta-text my-dorm__count">
             {dormListings.length} item{dormListings.length === 1 ? "" : "s"} available
           </p>

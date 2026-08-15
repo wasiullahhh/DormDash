@@ -1,12 +1,46 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import {
-  MOCK_LISTINGS,
-  MOCK_SAVED_LISTING_IDS,
-  MOCK_SWIPE_HISTORY,
-} from "../lib/mockData";
+import { MOCK_SAVED_LISTING_IDS, MOCK_SWIPE_HISTORY } from "../lib/mockData";
 import { supabase } from "../lib/supabase";
 
 const SessionContext = createContext(null);
+
+// Category -> placeholder tone, used only when a listing has no uploaded
+// photo yet (ListingPhoto falls back to this "printed label" look).
+const CATEGORY_TONES = {
+  Electronics: "navy",
+  Kitchen: "navy",
+  Furniture: "stamp",
+  Clothing: "stamp",
+  Decor: "forest",
+  Books: "forest",
+  Storage: "kraft",
+  Misc: "kraft",
+};
+
+// Maps a raw `listings` row (with seller/building joined in) to the shape
+// every listing-consuming component already expects (SwipeCard,
+// ListingGridItem, ListingDetailPage, MyDormPage...). Keeping this shape
+// stable means those components don't need to change as the data source
+// moves from mock to real.
+function mapListingRow(row) {
+  return {
+    id: row.listing_id,
+    title: row.title,
+    description: row.description || "",
+    category: row.category || "Misc",
+    condition: row.condition || "Good",
+    price: row.price ?? 0,
+    photoUrl: row.photos?.[0] || null,
+    photoTone: CATEGORY_TONES[row.category] || "kraft",
+    photoLabel: (row.category || "Misc").toUpperCase(),
+    dorm: row.building?.name || "Unknown Building",
+    buildingId: row.building_id,
+    room: row.pickup_location || "",
+    seller: { id: row.seller_id, name: row.seller?.full_name || "A student" },
+    tags: [],
+    postedAt: (row.created_at || "").slice(0, 10),
+  };
+}
 
 // Supabase Auth only knows email/password/metadata. Everything else
 // (full_name, phone_number, building_id...) lives in the "users" table
@@ -48,7 +82,7 @@ export function SessionProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [buildings, setBuildings] = useState([]);
-  const [listings, setListings] = useState(MOCK_LISTINGS);
+  const [listings, setListings] = useState([]);
   const [dormScope, setDormScope] = useState("mine"); // "mine" | "all"
   const [swipeHistory, setSwipeHistory] = useState(MOCK_SWIPE_HISTORY);
   const [savedListingIds, setSavedListingIds] = useState(
@@ -69,6 +103,27 @@ export function SessionProvider({ children }) {
         }
         setBuildings(data || []);
       });
+  }, []);
+
+  // Listings are public read data too (RLS, if any, should allow
+  // authenticated SELECT — same pattern as `users`). Loaded once on mount
+  // and re-loaded via refreshListings() after posting a new one, so a
+  // freshly-posted item shows up without a full page reload.
+  const refreshListings = async () => {
+    const { data, error } = await supabase
+      .from("listings")
+      .select("*, seller:users!seller_id(full_name), building:buildings!building_id(name)")
+      .eq("status", "available")
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("Failed to load listings:", error.message);
+      return;
+    }
+    setListings((data || []).map(mapListingRow));
+  };
+
+  useEffect(() => {
+    refreshListings();
   }, []);
 
   // Single entry point for "we now have (or lost) an authenticated user."
@@ -230,10 +285,6 @@ export function SessionProvider({ children }) {
     });
   };
 
-  const addListing = (listing) => {
-    setListings((prev) => [listing, ...prev]);
-  };
-
   // full_name is required in the onboarding form and isn't sensitive, so
   // it's the "has this person finished onboarding" signal.
   const profileComplete = Boolean(profile?.full_name);
@@ -247,7 +298,7 @@ export function SessionProvider({ children }) {
       authReady,
       buildings,
       listings,
-      addListing,
+      refreshListings,
       dormScope,
       setDormScope,
       swipeHistory,

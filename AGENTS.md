@@ -17,16 +17,20 @@ deliberately stubbed, and constraints that aren't obvious from the code.
 - **No router.** Navigation is local `useState` tab-switching in
   `App.jsx`, not react-router. Keep it that way unless asked — the app
   is five flat screens plus one modal, a router is unneeded weight.
-- **Data**: Supabase. Auth (email/password, sign-up + sign-in) is wired
-  and live against a real project. Firestore-equivalent data (listings,
-  profiles) is still mock/local state — see "Current state" below.
-- **AI**: Gemini API (`gemini-2.5-flash`, raw `fetch` — no SDK dependency
-  added). `curateListings` (ranking) and `parseListingFromPhoto` (vision +
-  text → structured listing) are live, both using `responseSchema` for
-  structured JSON output. `generateDigest` is still a stub, see
-  "Current state". The API key is bundled into client JS (no backend to
-  hide it behind) — see the security note atop `lib/gemini.js` before
-  extending this further.
+- **Data**: Supabase. Auth, profiles (`users`), buildings, and listings
+  are all live against a real project — see "Current state" below for
+  what's still local-only (swipe/save state, chat, moderation, impact
+  tracking).
+- **AI**: Gemini API (`gemini-flash-latest`, raw `fetch` — no SDK
+  dependency added). Use the `-latest` alias, not a pinned version —
+  Google deprecated `gemini-2.5-flash`/`gemini-2.5-flash-lite` for new
+  API keys within the same day this project's key was created, even
+  though both still show up in the `models.list` endpoint. `curateListings`
+  (ranking) and `parseListingFromPhoto` (vision + text → structured
+  listing) are live, both using `responseSchema` for structured JSON
+  output. `generateDigest` is still a stub, see "Current state". The API
+  key is bundled into client JS (no backend to hide it behind) — see the
+  security note atop `lib/gemini.js` before extending this further.
 - **Do not add a new npm dependency without asking first.** This was an
   explicit instruction from the project owner. That includes routing,
   animation, and icon libraries — the swipe gestures and icon set are
@@ -42,16 +46,21 @@ src/
   context/
     SessionContext.jsx   — the app's only global state: user (auth
                             identity), profile (public.users row),
-                            profileComplete, saveProfile, buildings,
-                            listings (still mock), dormScope,
-                            swipeHistory, savedListingIds. useSession()
-                            hook. This is what "no prop drilling" refers
-                            to in the original brief.
+                            profileComplete, saveProfile, buildings
+                            (real), listings (real, see mapListingRow),
+                            refreshListings, dormScope, swipeHistory,
+                            savedListingIds (still local-only, see
+                            Current state). useSession() hook. This is
+                            what "no prop drilling" refers to in the
+                            original brief.
   lib/
-    mockData.js           — MOCK_LISTINGS, DORMS, CATEGORIES. DORMS is
-                            plain strings and is NOT the same thing as
-                            the real `buildings` table (see Database
-                            schema) — only used by mock listings now.
+    mockData.js           — just CATEGORIES + two empty local-state
+                            seeds now (MOCK_SWIPE_HISTORY,
+                            MOCK_SAVED_LISTING_IDS). DORMS and
+                            MOCK_LISTINGS were removed once real
+                            `buildings`/`listings` replaced them —
+                            don't reintroduce fake dorm-name strings,
+                            use `SessionContext.buildings` instead.
     gemini.js              — curateListings/parseListingFromPhoto are
                             live (see below); generateDigest still stubbed
     supabase.js            — live client (createClient + ALLOWED_EMAIL_DOMAIN).
@@ -89,10 +98,11 @@ and reconcile `tokens.css` against it.
   stamp overlays. Reuse `.stamp-badge`, `.perforation`, and
   `.meta-text` utility classes (defined in `index.css`) rather than
   re-implementing this look elsewhere.
-- Listings have no real photos yet — `ListingPhoto` renders a colored
-  placeholder block with a printed-label look. Swap its internals for
-  a real `<img>` once Storage is wired up; keep the component's props
-  contract (`tone`, `label`) so callers don't need to change.
+- `ListingPhoto` now renders a real `<img>` when a listing has a photo
+  (`src` prop, from Supabase Storage). Falls back to the colored
+  placeholder + `tone`/`label` look for listings without one — that
+  placeholder scheme isn't going away, it's the permanent no-photo state,
+  not a temporary stand-in anymore.
 
 ## Database schema (Supabase Postgres)
 
@@ -166,18 +176,30 @@ reintroduce `id` for this table anywhere.
   (`buildings` state, public read, no auth needed) and used by the
   dorm picker in both `OnboardingPage` and `ProfilePage` — they submit
   a real `building_id` uuid, not a text name.
-- **Listings are split-brain right now — this is the next thing to fix.**
-  `PostItemPage` writes real rows straight to the `listings` table
-  (uploads the photo to a `listing-images` Storage bucket first, then
-  inserts with `seller_id`/`building_id`/`pickup_location` from the
-  signed-in user's real profile). But `SwipeFeedPage`, `MyDormPage`, and
-  `SavedPage` all still read from `SessionContext`'s `listings` state,
-  which is `lib/mockData.js`'s `MOCK_LISTINGS` and never includes what
-  `PostItemPage` just posted. Swiping/saving also still only mutate that
-  local mock state. So: newly-posted items are real and in the database,
-  but invisible everywhere in the app except directly in Supabase's
-  Table Editor. Fixing this is "Not built yet" item 3 below — don't be
-  surprised a freshly-posted item doesn't show up in the feed.
+- **Listings are real, end to end.** `PostItemPage` writes rows straight
+  to the `listings` table (photo → `listing-images` Storage bucket first,
+  then insert with `seller_id`/`building_id`/`pickup_location` from the
+  signed-in user's real profile). `SessionContext`'s `refreshListings()`
+  fetches `listings` joined with `seller:users!seller_id(full_name)` and
+  `building:buildings!building_id(name)`, filtered to `status = 'available'`,
+  and maps each row through `mapListingRow()` into the same shape the UI
+  always expected (`id`, `dorm`, `room`, `seller.name`, `photoTone`/
+  `photoLabel` as a no-photo fallback, etc.) — this is why
+  `SwipeFeedPage`/`MyDormPage`/`SavedPage`/`ListingDetailPage` needed
+  almost no changes. Runs once on mount and again after `PostItemPage`
+  successfully inserts, so a freshly-posted item shows up without a
+  reload. `dormScope === "mine"` filtering compares `listing.buildingId`
+  against `profile.building_id` (a real uuid) — not a name string.
+  **Caveat**: the `seller` embed only resolves for an authenticated
+  request — the `users` RLS policy grants SELECT `to authenticated` only,
+  not `anon`. The live app always has a session once past login, so this
+  should be fine, but if seller names ever show as the "A student"
+  fallback in the actual app (not just an unauthenticated test script),
+  that RLS assumption is the first thing to check.
+  Swiping/saving (`recordSwipe`/`savedListingIds`) are still local-state
+  only — that's `requests` table wiring, a separate "Not built yet" item.
+  `tags` are always `[]` for real listings — `PostItemPage`'s insert
+  doesn't send any (there's no `tags` column on `listings`).
 - **Gemini is live for two of three functions.** `curateListings` and
   `parseListingFromPhoto` call the real API (see `lib/gemini.js` and the
   "AI" bullet above). `generateDigest` is still the original stub —
@@ -201,17 +223,25 @@ events, not just synthetic `.click()`). If you touch the drag logic,
 keep this "only capture once a real drag starts" behavior, or taps
 will silently break again.
 
+## Known gotcha: Gemini model names go stale fast
+
+Don't hardcode a specific Gemini model version (`gemini-2.5-flash`,
+etc.) from memory/training data — check `models.list` (or just use an
+alias) instead. Confirmed firsthand: `gemini-2.5-flash` and
+`gemini-2.5-flash-lite` both 404 with "no longer available to new
+users" on a freshly-created API key, despite both still being returned
+by the `models.list` endpoint (which apparently doesn't filter by
+new-user eligibility). `lib/gemini.js` uses `gemini-flash-latest` — an
+alias Google maintains to point at whatever the current recommended
+flash model is — specifically to avoid this. Keep using an alias here
+rather than pinning a version again.
+
 ## Not built yet (next steps, roughly in order)
 
 1. ~~Wire Supabase Auth~~ — done, see "Current state" above.
 2. ~~Sync profile fields to a real table~~ — done (`public.users`, see
    "Current state" and "Database schema" above).
-3. **Fix the listings split-brain** — replace `SessionContext`'s mock
-   `listings` with real reads from the `listings` table (join/fetch
-   `seller_id`/`building_id` against `users`/`buildings`), so what
-   `PostItemPage` already posts shows up in `SwipeFeedPage`/`MyDormPage`/
-   `SavedPage`. Keep the same context shape so pages don't change more
-   than necessary.
+3. ~~Fix the listings split-brain~~ — done, see "Current state" above.
 4. Wire the real "want it" flow to the `requests` table instead of
    local `recordSwipe`/`savedListingIds` state.
 5. ~~Wire real Supabase Storage upload in PostItemPage~~ — done

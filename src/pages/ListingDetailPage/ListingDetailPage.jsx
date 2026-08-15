@@ -4,8 +4,9 @@ import { IconBack, IconHeart, IconMapPin, IconTag } from "../../components/icons
 import "./ListingDetailPage.css";
 
 export default function ListingDetailPage({ listing, onClose }) {
-  const { savedListingIds, toggleSaved, recordSwipe } = useSession();
+  const { user, savedListingIds, toggleSaved, recordSwipe } = useSession();
   const isSaved = savedListingIds.has(listing.id);
+  const isOwnListing = listing.seller.id === user?.id;
 
   const handleWantIt = () => {
     if (!isSaved) {
@@ -22,6 +23,7 @@ export default function ListingDetailPage({ listing, onClose }) {
       </button>
 
       <ListingPhoto
+        src={listing.photoUrl}
         tone={listing.photoTone}
         label={listing.photoLabel}
         className="listing-detail__photo"
@@ -74,16 +76,22 @@ export default function ListingDetailPage({ listing, onClose }) {
       </div>
 
       <div className="listing-detail__actions">
-        <button type="button" className="listing-detail__message">
-          Message Seller
-        </button>
-        <button
-          type="button"
-          className={`listing-detail__want${isSaved ? " listing-detail__want--active" : ""}`}
-          onClick={handleWantIt}
-        >
-          <IconHeart /> {isSaved ? "Kept" : "Want It"}
-        </button>
+        {isOwnListing ? (
+          <span className="listing-detail__own-notice stamp-badge">Your Listing</span>
+        ) : (
+          <>
+            <button type="button" className="listing-detail__message">
+              Message Seller
+            </button>
+            <button
+              type="button"
+              className={`listing-detail__want${isSaved ? " listing-detail__want--active" : ""}`}
+              onClick={handleWantIt}
+            >
+              <IconHeart /> {isSaved ? "Kept" : "Want It"}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

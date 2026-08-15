@@ -5,6 +5,7 @@ export default function ListingGridItem({ listing, onExpand }) {
   return (
     <button type="button" className="grid-item" onClick={() => onExpand(listing)}>
       <ListingPhoto
+        src={listing.photoUrl}
         tone={listing.photoTone}
         label={listing.photoLabel}
         className="grid-item__photo"
