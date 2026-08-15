@@ -36,10 +36,18 @@ export function SessionProvider({ children }) {
   );
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(toAppUser(data.session?.user));
-      setAuthReady(true);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setUser(toAppUser(data.session?.user));
+      })
+      .catch((err) => {
+        // A bad URL/key or network hiccup here must not leave the app
+        // stuck rendering nothing forever — fall back to logged-out.
+        console.error("Supabase getSession failed:", err);
+        setUser(null);
+      })
+      .finally(() => setAuthReady(true));
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(toAppUser(session?.user));
