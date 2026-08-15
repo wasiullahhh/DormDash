@@ -1,0 +1,94 @@
+.swipe-feed {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--space-md);
+  gap: var(--space-md);
+}
+
+.swipe-feed__scope {
+  align-self: center;
+  display: flex;
+  background: var(--color-navy-tint);
+  border: 1px solid var(--color-kraft-dark);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+}
+
+.swipe-feed__scope-btn {
+  border: none;
+  background: none;
+  padding: var(--space-2xs) var(--space-md);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.swipe-feed__scope-btn--active {
+  background: var(--color-navy);
+  color: var(--color-white);
+}
+
+.swipe-feed__stack {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.swipe-feed__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  text-align: center;
+  color: var(--color-ink-muted);
+  padding: var(--space-lg);
+}
+
+.swipe-feed__empty-icon {
+  font-size: 2rem;
+  color: var(--color-forest);
+}
+
+.swipe-feed__empty-stamp {
+  color: var(--color-forest-dark);
+  font-size: 0.85rem;
+}
+
+.swipe-feed__actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-xl);
+  padding-bottom: var(--space-sm);
+}
+
+.swipe-feed__action {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  background: var(--color-white);
+  box-shadow: var(--shadow-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+}
+
+.swipe-feed__action--pass {
+  color: var(--color-stamp);
+}
+
+.swipe-feed__action--want {
+  color: var(--color-forest);
+}
+
+.swipe-feed__action:active {
+  transform: scale(0.92);
+}

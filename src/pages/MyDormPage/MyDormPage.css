@@ -1,0 +1,38 @@
+.my-dorm {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.my-dorm__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.my-dorm__icon {
+  font-size: 1.8rem;
+  color: var(--color-forest);
+}
+
+.my-dorm__title {
+  font-size: 1.15rem;
+}
+
+.my-dorm__count {
+  color: var(--color-ink-muted);
+  font-size: 0.72rem;
+}
+
+.my-dorm__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-sm);
+}
+
+.my-dorm__empty {
+  color: var(--color-ink-muted);
+  padding: var(--space-lg) 0;
+  text-align: center;
+}

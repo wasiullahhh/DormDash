@@ -1,0 +1,56 @@
+/* DormDash design tokens — shipping-label / kraft-paper visual system */
+:root {
+  /* Palette */
+  --color-kraft-light: #f4ecd8;
+  --color-kraft: #e6d7b3;
+  --color-kraft-dark: #cbb589;
+  --color-cream: #faf5e8;
+  --color-white: #fffdf8;
+
+  --color-navy: #1c2b3a;
+  --color-navy-light: #33475c;
+  --color-navy-tint: rgba(28, 43, 58, 0.06);
+
+  --color-forest: #2f6b4a;
+  --color-forest-dark: #234f37;
+  --color-forest-light: #4f8f6a;
+  --color-forest-tint: rgba(47, 107, 74, 0.12);
+
+  --color-stamp: #d9702e;
+  --color-stamp-dark: #b3591f;
+  --color-stamp-tint: rgba(217, 112, 46, 0.12);
+
+  --color-ink: #241d12;
+  --color-ink-muted: #5c5442;
+
+  /* Typography */
+  --font-display: "Oswald", "Arial Narrow", sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "Space Mono", "Courier New", monospace;
+
+  /* Spacing */
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 10px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  /* Shadow */
+  --shadow-card: 0 12px 28px rgba(28, 43, 58, 0.16), 0 3px 6px rgba(28, 43, 58, 0.1);
+  --shadow-raised: 0 2px 6px rgba(28, 43, 58, 0.14);
+  --shadow-stamp: 0 1px 0 rgba(28, 43, 58, 0.08);
+
+  /* Layout */
+  --nav-height: 68px;
+  --header-height: 56px;
+  --app-max-width: 480px;
+}

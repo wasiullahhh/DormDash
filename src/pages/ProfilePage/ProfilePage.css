@@ -1,0 +1,113 @@
+.profile-page {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.profile-page__card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.profile-page__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-navy);
+  color: var(--color-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+
+.profile-page__name {
+  font-size: 1.05rem;
+}
+
+.profile-page__email {
+  color: var(--color-ink-muted);
+  font-size: 0.72rem;
+}
+
+.profile-page__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.profile-page__field label,
+.profile-page__label-static {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-muted);
+}
+
+.profile-page__select-wrap {
+  position: relative;
+}
+
+.profile-page__field select,
+.profile-page__field input {
+  width: 100%;
+  appearance: none;
+  border: 1px solid var(--color-kraft-dark);
+  background: var(--color-white);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  font-size: 0.9rem;
+  color: var(--color-ink);
+}
+
+.profile-page__field input[readonly] {
+  background: var(--color-navy-tint);
+  color: var(--color-ink-muted);
+}
+
+.profile-page__select-icon {
+  position: absolute;
+  right: var(--space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--color-ink-muted);
+}
+
+.profile-page__stamp {
+  align-self: flex-start;
+  color: var(--color-forest-dark);
+  font-size: 0.75rem;
+}
+
+.profile-page__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+.profile-page__tag {
+  background: var(--color-navy-tint);
+  border: 1px solid var(--color-kraft-dark);
+  border-radius: var(--radius-pill);
+  padding: 4px var(--space-sm);
+  font-size: 0.68rem;
+  color: var(--color-navy);
+}
+
+.profile-page__signout {
+  margin-top: var(--space-md);
+  border: 2px solid var(--color-stamp);
+  color: var(--color-stamp-dark);
+  background: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.78rem;
+}

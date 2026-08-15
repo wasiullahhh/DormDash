@@ -1,0 +1,95 @@
+@import "./styles/tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-kraft-light);
+  background-image: radial-gradient(circle at 1px 1px, rgba(28, 43, 58, 0.05) 1px, transparent 0);
+  background-size: 18px 18px;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--color-navy);
+  margin: 0;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+/* Barcode / meta text style used for prices, dorm codes, timestamps */
+.meta-text {
+  font-family: var(--font-mono);
+  letter-spacing: 0.03em;
+}
+
+/* Reusable rotated "rubber stamp" badge */
+.stamp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: var(--space-2xs) var(--space-sm);
+  border: 2px solid currentColor;
+  border-radius: var(--radius-sm);
+  transform: rotate(-6deg);
+  box-shadow: var(--shadow-stamp);
+}
+
+/* Dashed perforation divider, evokes a tear-off ticket line */
+.perforation {
+  border: none;
+  border-top: 2px dashed var(--color-kraft-dark);
+  margin: 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

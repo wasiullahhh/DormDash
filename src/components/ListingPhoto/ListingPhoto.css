@@ -1,0 +1,47 @@
+.listing-photo {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.06) 0px,
+    rgba(255, 255, 255, 0.06) 2px,
+    transparent 2px,
+    transparent 10px
+  );
+}
+
+.listing-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px dashed rgba(255, 253, 248, 0.35);
+  margin: 10px;
+  pointer-events: none;
+}
+
+.listing-photo__label {
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.18em;
+  color: rgba(255, 253, 248, 0.85);
+}
+
+.listing-photo--navy {
+  background-color: var(--color-navy);
+}
+.listing-photo--forest {
+  background-color: var(--color-forest);
+}
+.listing-photo--stamp {
+  background-color: var(--color-stamp);
+}
+.listing-photo--kraft {
+  background-color: var(--color-kraft-dark);
+}
+.listing-photo--kraft .listing-photo__label {
+  color: var(--color-ink);
+}
