@@ -86,6 +86,7 @@ Students constantly buy, replace, and throw away items every semester. We wanted
 
 ## 👨‍💻 Team
 
-- Wasi Ullah: [YOUR CONTRIBUTIONS, e.g. Gemini integration, Express backend, Supabase setup]
-- [TEAMMATE NAME]
-- [TEAMMATE NAME]
+- Wasi Ullah
+- Remus Yip
+- Salman Burhan
+- Mahathir Chowdhury
